@@ -110,13 +110,17 @@ async def job_suppliers(job_id: str):
 
 @app.post("/api/jobs/{job_id}/suppliers/csv")
 async def job_suppliers_csv(job_id: str, body: dict):
-    """Server-side CSV export (Python csv.writer, RFC 4180).
+    """Export job cards as XLSX (Excel-safe: encoding and columns guaranteed).
 
     Client POSTs user notes (localStorage) so they land in the file:
-    {"notes": {"<identity_key>": "text"}}. Returns text/csv with BOM.
+    {"notes": {"<identity_key>": "text"}}. CSV was dropped on purpose:
+    BOM + sep=; conflict inside Excel (ANSI fallback -> mojibake).
     """
-    import csv
     import io
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
 
     store = get_store()
     job = store.get_job(job_id)
@@ -125,10 +129,17 @@ async def job_suppliers_csv(job_id: str, body: dict):
     notes = (body or {}).get("notes") or {}
     cards = store.job_suppliers(job_id)
 
-    buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
-    w.writerow(["Название", "Скор", "Город", "Телефон", "Email", "Сайт", "Мин. заказ",
-                "Цена", "Доставка", "ИНН", "Сертификаты", "Заметка", "Источник"])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Поставщики"
+    header = ["Название", "Скор", "Город", "Телефон", "Email", "Сайт", "Мин. заказ",
+              "Цена", "Доставка", "ИНН", "Сертификаты", "Заметка", "Источник"]
+    ws.append(header)
+    head_font = Font(bold=True, color="FFFFFF")
+    head_fill = PatternFill("solid", fgColor="016048")
+    for cell in ws[1]:
+        cell.font = head_font
+        cell.fill = head_fill
     for card in cards:
         s = score_card(card, job["category"], job["city"])
         row = [
@@ -146,13 +157,21 @@ async def job_suppliers_csv(job_id: str, body: dict):
             notes.get(card.identity_key, ""),
             ", ".join(s.url for s in card.sources),
         ]
-        w.writerow(row)
+        ws.append(row)
 
-    data = "\uFEFFsep=;\r\n" + buf.getvalue()  # BOM + Excel hint: split on ';' without the text wizard
+    # readable column widths; freeze header; autofilter = a real table feel
+    widths = [28, 7, 16, 22, 24, 40, 14, 12, 40, 14, 18, 24, 40]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(header))}{len(cards) + 1}"
+
+    buf = io.BytesIO()
+    wb.save(buf)
     return Response(
-        content=data,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="suppliers.csv"'},
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="suppliers.xlsx"'},
     )
 
 
