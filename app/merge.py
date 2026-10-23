@@ -14,9 +14,16 @@ from .validate import canonical_url
 _DOMAIN_STOP = re.compile(r"^(www|opt|m|moskva|msk|spb|catalog|katalog|shop|ru|magazin|new|demo)\b", re.IGNORECASE)
 
 
+_DIRECTORY_HOSTS = {
+    "2gis.ru", "orgpage.ru", "list-org.com", "checko.ru", "e-ecolog.ru", "rusprofile.ru",
+    "sbis.ru", "zachestnyibiznes.ru", "flamp.ru", "yandex.ru",
+}
+
+
 def norm_domain(url: str) -> str:
     try:
-        host = urlparse(url).netloc.lower()
+        parsed = urlparse(url)
+        host = parsed.netloc.lower()
     except Exception:
         return ""
     host = host.replace("www.", "")
@@ -25,7 +32,13 @@ def norm_domain(url: str) -> str:
     parts = host.split(".")
     if len(parts) > 2 and parts[0] in _CITY_SUBDOMAINS:
         parts = parts[1:]
-    return ".".join(parts)
+    norm = ".".join(parts)
+    # directory firm pages: host alone identifies the directory, not the supplier.
+    # full path makes each firm its own identity instead of collapsing all into one.
+    if norm in _DIRECTORY_HOSTS or "zachestnyibiznes" in norm:
+        slug = (parsed.path or "").strip("/").replace("/", "-")
+        return f"{norm}/{slug}" if slug else norm
+    return norm
 
 
 _CITY_SUBDOMAINS = {

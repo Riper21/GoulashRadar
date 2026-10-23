@@ -11,6 +11,7 @@ from .engines.bing import BingEngine
 from .engines.yandex import YandexEngine
 from .engines.twogis import TwoGisEngine
 from .engines.ranking import rank_candidates
+from .engines.twogis import cached_item_for, twogis_page_data
 from .extract.cascade import extract_candidate
 from .merge import Merger, identity_key_for
 from .names import clean_name, shop_name_from_domain
@@ -143,6 +144,15 @@ async def _run_pipeline(job_id: str, category: str, city: str, stats: dict, stor
 
         async def process(i: int, cand: Candidate) -> None:
             nonlocal fetched
+            # 2GIS: firm pages are JS-only — card data comes from the API response itself
+            if cand.engine == "twogis":
+                fetched += 1
+                item = cached_item_for(cand.url)
+                pd = twogis_page_data(item) if item else None
+                if pd is not None:
+                    _emit_card(job_id, cand, pd, city, category, merger, store, stats)
+                bus.publish(job_id, "progress", {"fetched": fetched, "total": total, "found": merger_count(merger)})
+                return
             result = await extract_candidate(cand, None, force=force_refresh)  # stats=None -> LLM level runs in stage 2b
             fetched += 1
             if result:

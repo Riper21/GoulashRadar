@@ -82,6 +82,22 @@ class Store:
             )
             self._conn.commit()
 
+    def recent_serps(self, engine: str, ttl_s: float, limit: int = 50) -> list:
+        """[(query_norm, html)] for an engine, newest first, within ttl."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT query_norm, html, fetched_at FROM serp_cache WHERE engine=?"
+                " ORDER BY fetched_at DESC LIMIT ?",
+                (engine, limit),
+            ).fetchall()
+        out = []
+        for r in rows:
+            age = datetime.utcnow() - datetime.fromisoformat(r["fetched_at"])
+            if age > timedelta(seconds=ttl_s):
+                continue
+            out.append((r["query_norm"], r["html"]))
+        return out
+
     # ---------- page cache ----------
 
     def get_page(self, url: str, ttl_s: float) -> Optional[str]:
