@@ -43,6 +43,9 @@ async def index(request: Request):
 
 @app.post("/api/search")
 async def api_search(req: SearchRequest):
+    ok, err = req.sane()
+    if not ok:
+        raise HTTPException(status_code=422, detail=err)
     job_id = await start_search(req.category, req.city, req.force_refresh, req.ru_only)
     return {"job_id": job_id, "cached": False}
 

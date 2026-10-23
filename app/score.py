@@ -3,6 +3,43 @@ from typing import List
 
 from .schema import SupplierCard
 
+# category keyword sets: one row = one food group, used as a relevance gate
+_CAT_KEYWORDS = {
+    "мука": ("мука", "мукомол", "крупа", "отруби", "крахмал", "bakery", "хлебопекар"),
+    "кофе": ("кофе", "roast", "обжар", "бариста", "espresso"),
+    "чай": ("чай", "tea"),
+    "какао": ("какао", "шоколад", "кондитер", "chocolate"),
+    "сахар": ("сахар", "sugar"),
+    "масло": ("масло", "oil", "жир"),
+    "сыр": ("сыр", "cheese", "молоч"),
+    "молоч": ("молок", "молоч", "dairy"),
+    "мяс": ("мяс", "meat", "птиц", "колбас"),
+    "рыб": ("рыб", "fish", "морепродукт"),
+    "овощ": ("овощ", "фрукт", "vegetable", "fruit", "плодоовощ"),
+    "упаков": ("упаков", "пакет", "мешок", "коробк", "тара", "pack"),
+    "специ": ("специ", "приправ", "пряност", "spice"),
+    "напит": ("напит", "вод", "juice", "сок"),
+    "консерв": ("консерв", "пресерв"),
+}
+
+# strong "wrong business" markers — hard penalty, not a gate (goods may be adjacent)
+_WRONG_BUSINESS = (
+    "одежд", "швей", "трикотаж", "обув", "мебел", "хозтовар", "отпугивател",
+    "канцеляр", "строител", "автозапчаст", "зоотовар", "инструмент", "хим",
+)
+
+
+def _cat_keywords(category: str):
+    """Keyword tuples whose root matches the query category (e.g. мука -> мука/мукомол...)."""
+    cat = (category or "").lower()
+    hits = []
+    for root, kws in _CAT_KEYWORDS.items():
+        if root in cat or any(kw in cat for kw in (root,)):
+            hits.extend(kws)
+    # always include the raw query words themselves
+    hits.extend(w for w in cat.split() if len(w) > 3)
+    return hits or [w for w in cat.split() if len(w) > 2]
+
 
 def score_card(card: SupplierCard, category: str, city: str) -> dict:
     """Returns {'total': 0..100, 'parts': {...}} — every part explainable."""
@@ -29,17 +66,25 @@ def score_card(card: SupplierCard, category: str, city: str) -> dict:
         c += 5
     parts["contacts"] = c
 
-    # 4) relevance (0-15): city match + category word in name
+    # 4) relevance (0-15): city match + category match in name/categories
     r = 0
     if city and card.city and city.lower() in card.city.lower():
         r += 10
-    cat_words = [w for w in (category or "").lower().split() if len(w) > 3]
-    name_l = (card.name or "").lower() + " " + " ".join(card.categories or []).lower()
-    if cat_words and any(w in name_l for w in cat_words):
+    cat_l = (category or "").lower()
+    text_l = ((card.name or "") + " " + " ".join(card.categories or [])).lower()
+    kws = _cat_keywords(category)
+    kw_hit = sum(1 for kw in kws if kw and kw in text_l)
+    if kw_hit:
         r += 5
     parts["relevance"] = min(r, 15)
 
-    total = min(sum(parts.values()), 100)
+    # 5) off-topic penalty: clothing/household/etc. shop in a food search
+    wrong = sum(1 for w in _WRONG_BUSINESS if w in text_l)
+    if wrong:
+        parts["relevance"] = 0
+        parts["off_topic"] = -min(10 * wrong, 35)
+
+    total = min(max(sum(parts.get(k, 0) for k in ("completeness", "verifiability", "contacts", "relevance")) + parts.get("off_topic", 0), 0), 100)
     return {"total": total, "parts": parts}
 
 

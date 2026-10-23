@@ -1,7 +1,7 @@
 """SupplierCard — контракт данных поставщика с провенансом по полям."""
+import re
 from datetime import datetime
 from typing import List, Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -83,6 +83,23 @@ class SearchRequest(BaseModel):
     city: str
     force_refresh: bool = False
     ru_only: bool = True  # RF-only sourcing by default; False = include foreign suppliers
+
+    def sane(self) -> tuple:
+        """Server-side input sanity: non-empty, reasonable length, letters present."""
+        category = (self.category or "").strip()
+        city = (self.city or "").strip()
+        if len(category) < 2 or len(category) > 80:
+            return False, "category must be 2-80 chars"
+        if len(city) < 2 or len(city) > 60:
+            return False, "city must be 2-60 chars"
+        if not re.search(r"[а-яёa-z]", category, re.IGNORECASE):
+            return False, "category must contain letters"
+        if not re.search(r"[а-яёa-z-]", city, re.IGNORECASE):
+            return False, "city must contain letters"
+        return True, ""
+
+    def normalized(self) -> tuple:
+        return (self.category or "").strip().lower(), (self.city or "").strip().lower()
 
 
 class SearchResponse(BaseModel):

@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from ..schema import SupplierCard, Phone, Email, SourceRef
 from ..validate import (
     extract_emails, extract_inn, extract_phones, extract_price_range,
-    extract_min_order, extract_certs, canonical_url,
+    extract_min_order, extract_certs, canonical_url, normalize_phone,
 )
 from ..engines.base import Candidate
 from datetime import datetime
@@ -44,11 +44,20 @@ class PageData:
         sources = [SourceRef(url=cand.url, engine=cand.engine, fetched_at=datetime.utcnow())]
         website = self.website or f"https://{cand.domain}"
         name = self.name or (cand.title.split("|")[0].split("—")[0].strip() or cand.domain)
+        # normalize + dedup phones: JSON-LD may hold raw "-812-467-88-66" forms
+        norm_phones: List[Phone] = []
+        seen_e164 = set()
+        for p in self.phones[:6]:
+            e164 = normalize_phone(p) or p
+            if e164 in seen_e164:
+                continue
+            seen_e164.add(e164)
+            norm_phones.append(Phone(raw=p, e164=e164))
         return SupplierCard(
             name=name[:150],
             inn=self.inn,
             identity_key=website,
-            phones=[Phone(raw=p, e164=p) for p in self.phones[:3]],
+            phones=norm_phones[:3],
             emails=[Email(address=e) for e in self.emails[:3]],
             website=website,
             address=self.address,
@@ -167,6 +176,25 @@ _CITY_HINT_RE = re.compile(
     r"(?:г\.|город[а]?|г\s)\s*([А-ЯЁ][а-яё-]{2,})", re.UNICODE
 )
 
+# nav-menu words that _CITY_HINT_RE mistakes for city names after "город"-like contexts
+_NOT_A_CITY = {
+    "женская", "женск", "мужская", "мужск", "оптовикам", "оптовая", "розница",
+    "прайс", "контакты", "каталог", "доставка", "официальный", "сайте",
+    "статьи", "новости", "отзывы", "акции", "скидки", "производства",
+}
+
+
+def _clean_city(candidate: Optional[str]) -> Optional[str]:
+    if not candidate:
+        return None
+    c = candidate.strip()
+    if c.lower() in _NOT_A_CITY:
+        return None
+    # city names are 3+ chars, start uppercase; reject hyphen-only/numeric junk
+    if len(c) < 3 or not re.search(r"[А-ЯЁа-яё]", c):
+        return None
+    return c
+
 
 def from_heuristics(html: str, pd: PageData, limit: int = 6000) -> PageData:
     soup = BeautifulSoup(html, "lxml")
@@ -199,7 +227,7 @@ def from_heuristics(html: str, pd: PageData, limit: int = 6000) -> PageData:
     if not pd.city:
         m = _CITY_HINT_RE.search(text)
         if m:
-            pd.city = m.group(1)
+            pd.city = _clean_city(m.group(1))
     return pd
 
 
