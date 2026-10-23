@@ -40,7 +40,7 @@ async def start_search(category: str, city: str, force_refresh: bool, ru_only: b
             return cached
     job_id = _new_job_id()
     store.create_job(job_id, category, city)
-    asyncio.get_event_loop().create_task(_run_job(job_id, category, city, ru_only))
+    asyncio.get_event_loop().create_task(_run_job(job_id, category, city, ru_only, force_refresh))
     return job_id
 
 
@@ -89,11 +89,11 @@ def recent_job_with_cards(category: str, city: str, ru_only: bool = True) -> Opt
     return new_id
 
 
-async def _run_job(job_id: str, category: str, city: str, ru_only: bool = True) -> None:
+async def _run_job(job_id: str, category: str, city: str, ru_only: bool = True, force_refresh: bool = False) -> None:
     stats = {"engines": [], "pages": 0, "llm_calls": 0, "cost_usd": 0.0, "ru_only": ru_only}
     store = get_store()
     try:
-        await asyncio.wait_for(_run_pipeline(job_id, category, city, stats, store, ru_only), timeout=CONFIG.job_deadline_s)
+        await asyncio.wait_for(_run_pipeline(job_id, category, city, stats, store, ru_only, force_refresh), timeout=CONFIG.job_deadline_s)
         store.finish_job(job_id, "done", stats)
         bus.finish(job_id)
     except asyncio.TimeoutError:
@@ -106,7 +106,7 @@ async def _run_job(job_id: str, category: str, city: str, ru_only: bool = True) 
         bus.finish(job_id)
 
 
-async def _run_pipeline(job_id: str, category: str, city: str, stats: dict, store, ru_only: bool = True) -> None:
+async def _run_pipeline(job_id: str, category: str, city: str, stats: dict, store, ru_only: bool = True, force_refresh: bool = False) -> None:
         # ---- stage 1: engines ----
         await _stage(job_id, "search", "Опрашиваем поисковые движки", 0.05)
         candidates: List[Candidate] = []
@@ -143,7 +143,7 @@ async def _run_pipeline(job_id: str, category: str, city: str, stats: dict, stor
 
         async def process(i: int, cand: Candidate) -> None:
             nonlocal fetched
-            result = await extract_candidate(cand, None)  # stats=None -> LLM level skipped
+            result = await extract_candidate(cand, None, force=force_refresh)  # stats=None -> LLM level runs in stage 2b
             fetched += 1
             if result:
                 pd, html = result

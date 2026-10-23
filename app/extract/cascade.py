@@ -8,14 +8,15 @@ from .structured import extract_page, PageData
 from .llm import llm_extract
 
 
-async def extract_candidate(cand: Candidate, job_stats: Optional[dict] = None) -> Optional[tuple]:
+async def extract_candidate(cand: Candidate, job_stats: Optional[dict] = None, force: bool = False) -> Optional[tuple]:
     """Fetch page and extract PageData. Returns (PageData, html) or None if page unusable.
 
     job_stats=None skips the LLM level — orchestrator runs it as a separate
     parallel batch (see llm_batch in orchestrator) to control wall-clock time.
     Legacy mode (job_stats dict) still runs LLM inline with a wait cap.
+    force=True re-downloads the page, bypassing the page cache.
     """
-    html = await fetch_page(cand.url)
+    html = await fetch_page(cand.url, force=force)
     if not html:
         return None
 
