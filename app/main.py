@@ -9,6 +9,7 @@ load_dotenv()  # .env: LLM_API_KEY, SR_* — must run before config import
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
@@ -21,6 +22,7 @@ from .store import get_store
 
 app = FastAPI(title="Supplier Radar", version="0.1.0")
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # allow Chrome extension / local tooling to call the API directly
 app.add_middleware(
