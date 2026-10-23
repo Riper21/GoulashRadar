@@ -64,33 +64,48 @@ async function runSearch(category, city) {
 }
 
 function listenJob(jobId, category, city) {
+  stopJobStream(); // drop any previous stream before opening the new one
   state.jobId = jobId;
   $("pipeline").classList.remove("hidden");
-  if (state.es) state.es.close();
   const es = new EventSource(`/api/jobs/${jobId}/events`);
   state.es = es;
+  // gate: ignore stale events from a previous job (ES reconnects can resurrect them)
+  const alive = () => state.es === es && state.jobId === jobId;
 
-  es.addEventListener("stage", (e) => setStage(JSON.parse(e.data)));
+  es.addEventListener("stage", (e) => { if (alive()) setStage(JSON.parse(e.data)); });
   es.addEventListener("card", (e) => {
+    if (!alive()) return;
     const d = JSON.parse(e.data);
     addCard(d.card, d.score, d.verdict, category, city);
   });
   es.addEventListener("card_update", (e) => {
+    if (!alive()) return;
     const d = JSON.parse(e.data);
     updateCard(d.card, d.score, d.verdict);
   });
   es.addEventListener("progress", (e) => {
+    if (!alive()) return;
     const d = JSON.parse(e.data);
     $("found-count").textContent = d.fetched;
   });
   es.addEventListener("error", (e) => {
+    if (!alive()) return;
     if (e.data) showError(JSON.parse(e.data).message);
   });
   es.addEventListener("done", () => {
+    if (!alive()) return;
     es.close();
     setStage({ key: "score", label: "Скорим и сортируем", progress: 1 });
     if (state.cards.length === 0) $("empty").classList.remove("hidden");
   });
+}
+
+function stopJobStream() {
+  if (state.es) {
+    state.es.close();
+    state.es = null;
+  }
+  state.jobId = null;
 }
 
 /* ---------- pipeline ---------- */
@@ -111,6 +126,7 @@ function setStage(d) {
 }
 
 function resetResults() {
+  stopJobStream(); // cancel the old job's event stream, not just the visuals
   state.cards = [];
   state.selected = new Set();
   $("cards").innerHTML = "";
