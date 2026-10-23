@@ -9,6 +9,27 @@ const state = { cards: [], selected: new Set(), jobId: null, es: null };
 const THEME_KEY = "sr-theme";
 const THEMES = ["lifemart", "goulash"];
 
+/* ---------- autocomplete (datalists filled from /api/config) ---------- */
+
+(async function initDatalists() {
+  try {
+    const res = await fetch("/api/config");
+    if (!res.ok) return;
+    const cfg = await res.json();
+    const fill = (listId, values) => {
+      const dl = $(listId);
+      if (!dl) return;
+      for (const v of values) {
+        const opt = document.createElement("option");
+        opt.value = v;
+        dl.appendChild(opt);
+      }
+    };
+    fill("categories", cfg.categories || []);
+    fill("cities", cfg.cities || []);
+  } catch (e) { /* offline: empty datalists, inputs still work */ }
+})();
+
 function applyTheme(theme) {
   const next = THEMES.includes(theme) ? theme : "lifemart";
   document.documentElement.setAttribute("data-theme", next);

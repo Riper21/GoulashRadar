@@ -1,78 +1,78 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Supplier Radar — поставщики food-направления</title>
+<title>Supplier Radar вЂ” РїРѕСЃС‚Р°РІС‰РёРєРё food-РЅР°РїСЂР°РІР»РµРЅРёСЏ</title>
 <link rel="stylesheet" href="/static/css/style.css?v=3">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">Supplier <span>Radar</span></div>
-  <div class="tagline">поиск и сравнение поставщиков продуктов питания в реальном времени</div>
-  <button id="theme-switch" class="theme-switch" title="Переключить фирменную тему">Тема: Goulash</button>
+  <div class="tagline">РїРѕРёСЃРє Рё СЃСЂР°РІРЅРµРЅРёРµ РїРѕСЃС‚Р°РІС‰РёРєРѕРІ РїСЂРѕРґСѓРєС‚РѕРІ РїРёС‚Р°РЅРёСЏ РІ СЂРµР°Р»СЊРЅРѕРј РІСЂРµРјРµРЅРё</div>
+  <button id="theme-switch" class="theme-switch" title="РџРµСЂРµРєР»СЋС‡РёС‚СЊ С„РёСЂРјРµРЅРЅСѓСЋ С‚РµРјСѓ">РўРµРјР°: Goulash</button>
 </header>
 
 <main>
   <section class="search-panel card">
     <form id="search-form">
       <div class="field">
-        <label for="category">Категория товара</label>
-        <input id="category" list="categories" placeholder="например: мука, упаковка для кофе" required autocomplete="off">
+        <label for="category">РљР°С‚РµРіРѕСЂРёСЏ С‚РѕРІР°СЂР°</label>
+        <input id="category" list="categories" placeholder="РЅР°РїСЂРёРјРµСЂ: РјСѓРєР°, СѓРїР°РєРѕРІРєР° РґР»СЏ РєРѕС„Рµ" required autocomplete="off">
         <datalist id="categories">
-          {% for c in categories %}<option value="{{ c }}"></option>{% endfor %}
+          
         </datalist>
       </div>
       <div class="field">
-        <label for="city">Город</label>
-        <input id="city" list="cities" placeholder="например: Москва" required autocomplete="off">
+        <label for="city">Р“РѕСЂРѕРґ</label>
+        <input id="city" list="cities" placeholder="РЅР°РїСЂРёРјРµСЂ: РњРѕСЃРєРІР°" required autocomplete="off">
         <datalist id="cities">
-          {% for c in cities %}<option value="{{ c }}"></option>{% endfor %}
+          
         </datalist>
       </div>
-      <button type="submit" id="search-btn">Найти поставщиков</button>
-      <label class="ru-toggle" title="По умолчанию ищем только ресурсы РФ: .ru/.su/.рф и российские B2B-каталоги">
-        <input type="checkbox" id="ru-only" checked> Только поставщики РФ
+      <button type="submit" id="search-btn">РќР°Р№С‚Рё РїРѕСЃС‚Р°РІС‰РёРєРѕРІ</button>
+      <label class="ru-toggle" title="РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ РёС‰РµРј С‚РѕР»СЊРєРѕ СЂРµСЃСѓСЂСЃС‹ Р Р¤: .ru/.su/.СЂС„ Рё СЂРѕСЃСЃРёР№СЃРєРёРµ B2B-РєР°С‚Р°Р»РѕРіРё">
+        <input type="checkbox" id="ru-only" checked> РўРѕР»СЊРєРѕ РїРѕСЃС‚Р°РІС‰РёРєРё Р Р¤
       </label>
     </form>
   </section>
 
   <section id="pipeline" class="card hidden">
     <div class="pipeline-head">
-      <div class="pipeline-title">Живой сбор данных</div>
-      <div class="pipeline-count"><span id="found-count">0</span> карточек</div>
+      <div class="pipeline-title">Р–РёРІРѕР№ СЃР±РѕСЂ РґР°РЅРЅС‹С…</div>
+      <div class="pipeline-count"><span id="found-count">0</span> РєР°СЂС‚РѕС‡РµРє</div>
     </div>
     <ol id="stages" class="stages">
-      <li data-key="search"     class="stage pending">Опрашиваем поисковые движки</li>
-      <li data-key="candidates" class="stage pending">Отбираем сайты-кандидаты</li>
-      <li data-key="fetch"      class="stage pending">Обходим сайты поставщиков</li>
-      <li data-key="score"      class="stage pending">Скорим и сортируем</li>
+      <li data-key="search"     class="stage pending">РћРїСЂР°С€РёРІР°РµРј РїРѕРёСЃРєРѕРІС‹Рµ РґРІРёР¶РєРё</li>
+      <li data-key="candidates" class="stage pending">РћС‚Р±РёСЂР°РµРј СЃР°Р№С‚С‹-РєР°РЅРґРёРґР°С‚С‹</li>
+      <li data-key="fetch"      class="stage pending">РћР±С…РѕРґРёРј СЃР°Р№С‚С‹ РїРѕСЃС‚Р°РІС‰РёРєРѕРІ</li>
+      <li data-key="score"      class="stage pending">РЎРєРѕСЂРёРј Рё СЃРѕСЂС‚РёСЂСѓРµРј</li>
     </ol>
     <div class="progress-bar"><div id="progress-fill"></div></div>
   </section>
 
   <section id="results">
     <div id="results-head" class="results-head hidden">
-      <h2>Результаты</h2>
+      <h2>Р РµР·СѓР»СЊС‚Р°С‚С‹</h2>
       <div class="head-actions">
-        <button id="export-btn" class="ghost">Экспорт CSV</button>
-        <button id="compare-btn" class="ghost" disabled>Сравнить выбранные (<span id="sel-count">0</span>)</button>
+        <button id="export-btn" class="ghost">Р­РєСЃРїРѕСЂС‚ CSV</button>
+        <button id="compare-btn" class="ghost" disabled>РЎСЂР°РІРЅРёС‚СЊ РІС‹Р±СЂР°РЅРЅС‹Рµ (<span id="sel-count">0</span>)</button>
       </div>
     </div>
     <div id="cards" class="cards"></div>
-    <div id="empty" class="empty hidden">Ничего не нашлось — попробуйте другую категорию или город.</div>
+    <div id="empty" class="empty hidden">РќРёС‡РµРіРѕ РЅРµ РЅР°С€Р»РѕСЃСЊ вЂ” РїРѕРїСЂРѕР±СѓР№С‚Рµ РґСЂСѓРіСѓСЋ РєР°С‚РµРіРѕСЂРёСЋ РёР»Рё РіРѕСЂРѕРґ.</div>
   </section>
 
   <section id="compare-view" class="card hidden">
     <div class="pipeline-head">
-      <div class="pipeline-title">Сравнение</div>
-      <button id="compare-close" class="ghost">✕ Закрыть</button>
+      <div class="pipeline-title">РЎСЂР°РІРЅРµРЅРёРµ</div>
+      <button id="compare-close" class="ghost">вњ• Р—Р°РєСЂС‹С‚СЊ</button>
     </div>
     <div id="compare-table"></div>
   </section>
 </main>
 
-<footer>Прототип · данные из открытых источников · каждая карточка ведёт к первоисточнику</footer>
+<footer>РџСЂРѕС‚РѕС‚РёРї В· РґР°РЅРЅС‹Рµ РёР· РѕС‚РєСЂС‹С‚С‹С… РёСЃС‚РѕС‡РЅРёРєРѕРІ В· РєР°Р¶РґР°СЏ РєР°СЂС‚РѕС‡РєР° РІРµРґС‘С‚ Рє РїРµСЂРІРѕРёСЃС‚РѕС‡РЅРёРєСѓ</footer>
 
 <script src="/static/js/app.js?v=4"></script>
 </body>

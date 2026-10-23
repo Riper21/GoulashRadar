@@ -6,11 +6,12 @@ from dotenv import load_dotenv
 
 load_dotenv()  # .env: LLM_API_KEY, SR_* — must run before config import
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
 
 from .config import CONFIG
@@ -20,9 +21,11 @@ from .score import score_card, verdict
 from .sse import sse_stream
 from .store import get_store
 
+_ROOT = Path(__file__).resolve().parent.parent  # repo root, CWD-independent
+_INDEX = _ROOT / "templates" / "index.html"
+
 app = FastAPI(title="Supplier Radar", version="0.1.0")
-templates = Jinja2Templates(directory="templates")
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(_ROOT / "static")), name="static")
 
 # allow Chrome extension / local tooling to call the API directly
 app.add_middleware(
@@ -34,11 +37,15 @@ app.add_middleware(
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request):
-    return templates.TemplateResponse(
-        "index.html",
-        {"request": request, "categories": CONFIG.categories, "cities": CONFIG.top_cities},
-    )
+async def index():
+    # static HTML (no Jinja): platform telemetry wraps ASGI and breaks TemplateResponse
+    return FileResponse(_INDEX)
+
+
+@app.get("/api/config")
+async def autocomplete_config():
+    """Category/city lists for the datalists (rendered client-side now)."""
+    return {"categories": CONFIG.categories, "cities": CONFIG.top_cities}
 
 
 @app.post("/api/search")
