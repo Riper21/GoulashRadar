@@ -22,3 +22,4 @@ scripts/_diag_*.ps1
 # OS
 Thumbs.db
 .DS_Store
+HR_MESSAGE.md
