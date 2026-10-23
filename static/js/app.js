@@ -4,6 +4,33 @@
 const $ = (id) => document.getElementById(id);
 const state = { cards: [], selected: new Set(), jobId: null, es: null };
 
+/* ---------- theme ---------- */
+
+const THEME_KEY = "sr-theme";
+const THEMES = ["lifemart", "goulash"];
+
+function applyTheme(theme) {
+  const next = THEMES.includes(theme) ? theme : "lifemart";
+  document.documentElement.setAttribute("data-theme", next);
+  const btn = $("theme-switch");
+  if (btn) btn.textContent = "Тема: " + (next === "lifemart" ? "LifeMart" : "Goulash");
+  try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private mode */ }
+}
+
+(function initTheme() {
+  let saved = null;
+  try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* private mode */ }
+  applyTheme(saved);
+  const btn = $("theme-switch");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme") || "lifemart";
+      const idx = THEMES.indexOf(cur);
+      applyTheme(THEMES[(idx + 1) % THEMES.length]);
+    });
+  }
+})();
+
 /* ---------- search ---------- */
 
 $("search-form").addEventListener("submit", (e) => {
