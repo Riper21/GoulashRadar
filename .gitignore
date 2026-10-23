@@ -1,0 +1,24 @@
+# secrets / local env
+.env
+
+# runtime data
+*.db
+supplier_radar.db
+data/
+
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# temp / debug artifacts
+job_out.json
+jobid.txt
+scripts/_diag_*.py
+scripts/_diag_*.ps1
+
+# OS
+Thumbs.db
+.DS_Store

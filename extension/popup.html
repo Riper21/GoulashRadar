@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="css/popup.css">
+</head>
+<body>
+  <header>
+    <span class="logo">🛒 Supplier Radar</span>
+    <span class="header-right">
+      <button id="theme-btn" title="Переключить тему (Жизньмарт / Goulash)">◧ тема</button>
+      <a href="#" id="open-full" title="Открыть полную версию">веб ↗</a>
+    </span>
+  </header>
+
+  <form id="search-form">
+    <input id="category" placeholder="Категория (напр. мука)" required>
+    <input id="city" placeholder="Город (напр. Москва)" required>
+    <button type="submit" id="search-btn">Найти поставщиков</button>
+    <label class="ru-toggle" title="Только ресурсы РФ: .ru/.su/.рф и российские B2B-каталоги">
+      <input type="checkbox" id="ru-only" checked> Только поставщики РФ
+    </label>
+  </form>
+
+  <div id="status" class="hidden"></div>
+
+  <div id="cards"></div>
+
+  <template id="card-tpl">
+    <div class="card">
+      <div class="row">
+        <span class="name"></span>
+        <span class="score"></span>
+      </div>
+      <div class="verdict"></div>
+      <div class="kv"><span class="k">Тел</span><span class="v phone"></span></div>
+      <div class="kv"><span class="k">Мин. заказ</span><span class="v minorder"></span></div>
+      <div class="links"></div>
+    </div>
+  </template>
+
+  <script src="js/popup.js"></script>
+</body>
+</html>

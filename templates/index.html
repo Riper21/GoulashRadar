@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supplier Radar — поставщики food-направления</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Supplier <span>Radar</span></div>
+  <div class="tagline">поиск и сравнение поставщиков продуктов питания в реальном времени</div>
+</header>
+
+<main>
+  <section class="search-panel card">
+    <form id="search-form">
+      <div class="field">
+        <label for="category">Категория товара</label>
+        <input id="category" list="categories" placeholder="например: мука, упаковка для кофе" required autocomplete="off">
+        <datalist id="categories">
+          {% for c in categories %}<option value="{{ c }}"></option>{% endfor %}
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="city">Город</label>
+        <input id="city" list="cities" placeholder="например: Москва" required autocomplete="off">
+        <datalist id="cities">
+          {% for c in cities %}<option value="{{ c }}"></option>{% endfor %}
+        </datalist>
+      </div>
+      <button type="submit" id="search-btn">Найти поставщиков</button>
+      <label class="ru-toggle" title="По умолчанию ищем только ресурсы РФ: .ru/.su/.рф и российские B2B-каталоги">
+        <input type="checkbox" id="ru-only" checked> Только поставщики РФ
+      </label>
+    </form>
+  </section>
+
+  <section id="pipeline" class="card hidden">
+    <div class="pipeline-head">
+      <div class="pipeline-title">Живой сбор данных</div>
+      <div class="pipeline-count"><span id="found-count">0</span> карточек</div>
+    </div>
+    <ol id="stages" class="stages">
+      <li data-key="search"     class="stage pending">Опрашиваем поисковые движки</li>
+      <li data-key="candidates" class="stage pending">Отбираем сайты-кандидаты</li>
+      <li data-key="fetch"      class="stage pending">Обходим сайты поставщиков</li>
+      <li data-key="score"      class="stage pending">Скорим и сортируем</li>
+    </ol>
+    <div class="progress-bar"><div id="progress-fill"></div></div>
+  </section>
+
+  <section id="results">
+    <div id="results-head" class="results-head hidden">
+      <h2>Результаты</h2>
+      <div class="head-actions">
+        <button id="export-btn" class="ghost">Экспорт CSV</button>
+        <button id="compare-btn" class="ghost" disabled>Сравнить выбранные (<span id="sel-count">0</span>)</button>
+      </div>
+    </div>
+    <div id="cards" class="cards"></div>
+    <div id="empty" class="empty hidden">Ничего не нашлось — попробуйте другую категорию или город.</div>
+  </section>
+
+  <section id="compare-view" class="card hidden">
+    <div class="pipeline-head">
+      <div class="pipeline-title">Сравнение</div>
+      <button id="compare-close" class="ghost">✕ Закрыть</button>
+    </div>
+    <div id="compare-table"></div>
+  </section>
+</main>
+
+<footer>Прототип · данные из открытых источников · каждая карточка ведёт к первоисточнику</footer>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>

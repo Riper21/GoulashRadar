@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="css/popup.css">
+</head>
+<body class="options-body">
+  <header><span class="logo">Настройки Supplier Radar</span></header>
+  <form id="options-form">
+    <label for="api-url">Адрес сервера Supplier Radar</label>
+    <input id="api-url" placeholder="http://127.0.0.1:8000">
+    <label for="theme-select">Цветовая схема</label>
+    <select id="theme-select">
+      <option value="lifemart">Жизньмарт — тёмно-зелёный + акцент #3F9E37 (светлая)</option>
+      <option value="goulash">Goulash — чёрный + циан #00FFFF (dark-tech)</option>
+    </select>
+    <button type="submit">Сохранить</button>
+    <div id="saved" class="hidden">Сохранено</div>
+  </form>
+  <script src="js/options.js"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  radar:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM optional — cascade works without it
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      # engines
+      SR_YANDEX: ${SR_YANDEX:-0}
+      SR_TWOGIS: ${SR_TWOGIS:-0}
+      SR_TWOGIS_API_KEY: ${SR_TWOGIS_API_KEY:-}
+    volumes:
+      - radar-data:/app/data
+    env_file:
+      - path: .env
+        required: false
+
+volumes:
+  radar-data:
