@@ -8,7 +8,7 @@ load_dotenv()  # .env: LLM_API_KEY, SR_* — must run before config import
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.requests import Request
@@ -106,6 +106,54 @@ async def job_suppliers(job_id: str):
         )
     result.sort(key=lambda x: -x["score"]["total"])
     return {"job": {"id": job_id, "status": job["status"]}, "suppliers": result}
+
+
+@app.post("/api/jobs/{job_id}/suppliers/csv")
+async def job_suppliers_csv(job_id: str, body: dict):
+    """Server-side CSV export (Python csv.writer, RFC 4180).
+
+    Client POSTs user notes (localStorage) so they land in the file:
+    {"notes": {"<identity_key>": "text"}}. Returns text/csv with BOM.
+    """
+    import csv
+    import io
+
+    store = get_store()
+    job = store.get_job(job_id)
+    if not job:
+        raise HTTPException(404, "job not found")
+    notes = (body or {}).get("notes") or {}
+    cards = store.job_suppliers(job_id)
+
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
+    w.writerow(["Название", "Скор", "Город", "Телефон", "Email", "Сайт", "Мин. заказ",
+                "Цена", "Доставка", "ИНН", "Сертификаты", "Заметка", "Источник"])
+    for card in cards:
+        s = score_card(card, job["category"], job["city"])
+        row = [
+            card.name,
+            s["total"],
+            card.city or "",
+            ", ".join(p.e164 or p.raw for p in card.phones),
+            ", ".join(e.address for e in card.emails),
+            card.website or "",
+            card.min_order or "",
+            card.price_range or "",
+            (card.delivery or "").replace("\r", " ").replace("\n", " ")[:120],
+            card.inn or "",
+            ", ".join(card.certs),
+            notes.get(card.identity_key, ""),
+            ", ".join(s.url for s in card.sources),
+        ]
+        w.writerow(row)
+
+    data = "\uFEFF" + buf.getvalue()  # BOM: Excel detects UTF-8
+    return Response(
+        content=data,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="suppliers.csv"'},
+    )
 
 
 @app.get("/api/health")

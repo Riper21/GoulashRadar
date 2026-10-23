@@ -336,34 +336,30 @@ function openNoteDialog(card) {
   if (i !== -1) updateCard(state.cards[i], null, null);
 }
 
-/* ---------- export CSV ---------- */
+/* ---------- export CSV (server-side, RFC 4180) ---------- */
 
-// RFC 4180: quote if the cell has any delimiter/quote/newline; single-line always
-function csvCell(v) {
-  let s = v == null ? "" : String(v);
-  s = s.replace(/\r?\n/g, " ").replace(/\r/g, " ").replace(/\t/g, " ").replace(/"/g, '""');
-  if (/[;"\n]/.test(s)) s = `"${s}"`;
-  return s;
-}
-
-function exportCsv() {
-  const rows = [["Название", "Город", "Телефон", "Email", "Сайт", "Мин. заказ", "Цена", "Доставка", "ИНН", "Сертификаты", "Заметка", "Источник"]];
+async function exportCsv() {
+  if (!state.jobId) return;
+  const notes = {};
   for (const c of state.cards) {
-    rows.push([
-      c.name, c.city || "",
-      (c.phones || []).map((p) => p.e164 || p.raw).join(", "),
-      (c.emails || []).map((e) => e.address).join(", "),
-      c.website || "", c.min_order || "", c.price_range || "",
-      (c.delivery || "").slice(0, 120), c.inn || "",
-      (c.certs || []).join(", "), getNote(c.identity_key),
-      (c.sources || []).map((s) => s.url).join(", "),
-    ]);
+    const n = getNote(c.identity_key);
+    if (n) notes[c.identity_key] = n;
   }
-  const csv = "\uFEFF" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "suppliers.csv";
-  a.click();
-  URL.revokeObjectURL(a.href);
+  try {
+    const res = await fetch(`/api/jobs/${state.jobId}/suppliers/csv`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ notes }),
+    });
+    if (!res.ok) throw new Error("export failed: " + res.status);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "suppliers.csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    console.error(err);
+    showError("Не удалось выгрузить CSV");
+  }
 }
