@@ -7,7 +7,7 @@ from typing import List, Optional
 import httpx
 
 from ..config import CONFIG
-from .structured import PageData, page_text_for_llm
+from .structured import PageData, page_text_for_llm, _clean_city
 from ..validate import normalize_phone, valid_inn
 
 PROMPT_PATH = Path(__file__).parent.parent.parent / "prompts" / "extract_supplier.v1.md"
@@ -126,7 +126,12 @@ def _parse_contract(data: dict, page_text: str) -> PageData:
     pd.name = single("name", "name")
     pd.website = single("website", "website")
     pd.address = single("address", "address")
-    pd.city = single("city", "city")
+    # city from LLM passes the same whitelist as heuristics: "Куплю/Крепкий" are not cities
+    llm_city = single("city", "city")
+    if llm_city:
+        cc = _clean_city(llm_city)
+        if cc:
+            pd.city = cc
     pd.min_order = single("min_order", "min_order")
     pd.price_range = single("price_range", "price_range")
     pd.delivery = single("delivery", "delivery")
