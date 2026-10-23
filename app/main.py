@@ -148,7 +148,7 @@ async def job_suppliers_csv(job_id: str, body: dict):
         ]
         w.writerow(row)
 
-    data = "\uFEFF" + buf.getvalue()  # BOM: Excel detects UTF-8
+    data = "\uFEFFsep=;\r\n" + buf.getvalue()  # BOM + Excel hint: split on ';' without the text wizard
     return Response(
         content=data,
         media_type="text/csv; charset=utf-8",
