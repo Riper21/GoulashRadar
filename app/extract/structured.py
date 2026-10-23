@@ -241,7 +241,8 @@ _DELIVERY_RE = re.compile(
 )
 _CITY_HINT_RE = re.compile(
     r"(?:\bг\.|\bгород[аыу]?\b|\bгород(?:а|у)?\s+поставки\b)[\s:]*"
-    r"([А-ЯЁ][а-яё-]{2,}(?:-[А-ЯЁ][а-яё-]{2,})?)",
+    # multi-word ("Нижний Новгород") and hyphenated ("Ростов-на-Дону", "Усолье-сибирское")
+    r"([А-ЯЁ][а-яё]+(?:[-\s][А-ЯЁа-яё]+)*)",
     re.UNICODE,
 )
 
@@ -278,15 +279,38 @@ _RU_CITIES = {
 
 
 def _clean_city(candidate: Optional[str]) -> Optional[str]:
-    """City only if it is a known Russian city; else None (better empty than wrong)."""
+    """City only if it is a known Russian city; else None (better empty than wrong).
+
+    Regex may grab "Нижний Новгород и область" — longest known-city prefix wins.
+    Inflected forms ("в г. Москве") are de-inflected before the whitelist lookup.
+    """
     if not candidate:
         return None
-    c = candidate.strip()
-    if len(c) < 3 or not re.search(r"[А-ЯЁа-яё]", c):
+    words = candidate.strip().split()
+    if not words or len(words[0]) < 3 or not re.search(r"[А-ЯЁа-яё]", words[0]):
         return None
-    if c.lower() not in _RU_CITIES:
-        return None
-    return c
+    # try longest-to-shortest word prefix, with case-ending fallback on the last word
+    for n in range(len(words), 0, -1):
+        base = " ".join(words[:n])
+        if base.lower() in _RU_CITIES:
+            return base
+        stem = _deinflect(base)
+        if stem and stem.lower() in _RU_CITIES:
+            return stem
+    return None
+
+
+def _deinflect(city: str) -> Optional[str]:
+    """Crude Russian case mapping: "Москве"->"Москва", "Тюмени"->"Тюмень".
+    Only returns a form that IS in the whitelist — never invents a city."""
+    w = city.split()
+    last = w[-1]
+    for end, repl in (("ии", "ия"), ("ии", "ий"), ("ени", "ень"), ("е", "а"), ("и", "а"), ("у", "а"), ("е", ""), ("и", ""), ("у", ""), ("и", "ь"), ("е", "ь")):
+        if last.endswith(end) and len(last) - len(end) >= 3:
+            cand = " ".join(w[:-1] + [last[: len(last) - len(end)] + repl])
+            if cand.lower() in _RU_CITIES:
+                return cand
+    return None
 
 
 def from_heuristics(html: str, pd: PageData, limit: int = 6000) -> PageData:
