@@ -78,18 +78,79 @@ class PageData:
 _ORG_TYPES = ("Organization", "LocalBusiness", "Store", "Corporation", "FoodEstablishment")
 
 
-def _walk_jsonld(node, out: List[dict]):
+def _fmt_price(amount, currency: str) -> Optional[str]:
+    try:
+        v = float(str(amount).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    if v <= 0 or v > 10_000_000:  # sanity: retail/opt prices only
+        return None
+    s = f"{v:g} руб."
+    return s
+
+
+def _price_from_structured(soup) -> Optional[str]:
+    """Price from a product page's machine-readable markup, not free text.
+
+    Priority: JSON-LD Product.offers > microdata itemprop=price > og:price.
+    Returns the first plausible price ('NNNN руб.') or None.
+    """
+    # 1) JSON-LD Product -> offers (offers may be a dict or a list)
+    for tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(tag.string or "{}")
+        except (json.JSONDecodeError, TypeError):
+            continue
+        products = []
+        _walk_jsonld(data, products, wanted="Product")
+        for prod in products:
+            offers = prod.get("offers")
+            if isinstance(offers, dict):
+                offers = [offers]
+            if isinstance(offers, list):
+                for off in offers:
+                    if not isinstance(off, dict):
+                        continue
+                    p = off.get("price") or off.get("lowPrice")
+                    if p is not None:
+                        cur = str(off.get("priceCurrency") or "RUB")
+                        if cur.upper() in ("RUB", "RUR", "₽"):
+                            r = _fmt_price(p, cur)
+                            if r:
+                                return r
+    # 2) microdata itemprop="price" (content attr or tag text)
+    for el in soup.find_all(attrs={"itemprop": "price"}):
+        p = el.get("content") or el.get_text(strip=True)
+        r = _fmt_price(p, "RUB")
+        if r:
+            return r
+    # 3) og:price / product:price:amount
+    for prop in ("og:price:amount", "product:price:amount", "og:price"):
+        og = soup.find("meta", attrs={"property": prop}) or soup.find("meta", attrs={"name": prop})
+        if og and og.get("content"):
+            r = _fmt_price(og["content"], "RUB")
+            if r:
+                return r
+    return None
+
+
+def _walk_jsonld(node, out: List[dict], wanted: str = "org"):
+    """Collect nodes of the wanted kind: 'org' (org/business) or 'Product'."""
     if isinstance(node, list):
         for item in node:
-            _walk_jsonld(item, out)
+            _walk_jsonld(item, out, wanted)
         return
     if isinstance(node, dict):
         t = node.get("@type", "")
         types = t if isinstance(t, list) else [t]
-        if any(any(ot in str(x) for x in types) for ot in _ORG_TYPES):
-            out.append(node)
+        if wanted == "Product":
+            if "Product" in [str(x) for x in types]:
+                out.append(node)
+        else:
+            if any(any(ot in str(x) for x in types) for ot in _ORG_TYPES):
+                out.append(node)
         if "@graph" in node:
-            _walk_jsonld(node["@graph"], out)
+            _walk_jsonld(node["@graph"], out, wanted)
 
 
 def from_structured(html: str, base_url: str) -> PageData:
@@ -140,6 +201,10 @@ def from_structured(html: str, base_url: str) -> PageData:
         og = soup.find("meta", property="og:url")
         if og and og.get("content") and og["content"].startswith("http"):
             pd.website = canonical_url(og["content"])
+
+    # product price: JSON-LD Product.offers, microdata itemprop, og:price
+    if not pd.price_range:
+        pd.price_range = _price_from_structured(soup)
 
     # meta description -> commercial fields
     desc = soup.find("meta", attrs={"name": "description"})
