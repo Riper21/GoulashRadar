@@ -190,7 +190,7 @@ function renderCard(card, score, verdict, category, city) {
   el.innerHTML = `
     <div class="row">
       <div class="name">${esc(card.name)}</div>
-      <span class="score-badge ${tier}" title="${parts ? scoreTooltip(parts) : ""}">${total}</span>
+      <span class="score-badge ${tier}" data-tooltip="${parts ? scoreTooltip(parts) : "Полнота: " + total + "/40 · остальное скрыто"}">${total}</span>
     </div>
     ${verdict ? `<div class="verdict ${tier}">${esc(verdict)}</div>` : ""}
     <div class="row"><span class="k">Телефон</span><span>${esc(phone)}</span></div>
@@ -229,8 +229,11 @@ function scoreTooltip(parts) {
     verifiability: "Проверяемость (ИНН/сайт/источники)",
     contacts: "Контакты",
     relevance: "Релевантность (город/категория)",
+    off_topic: "Штраф за нерелевантность",
   };
-  return Object.entries(parts).map(([k, v]) => `${labels[k] || k}: ${v}`).join("\n");
+  return Object.entries(parts)
+    .map(([k, v]) => `${labels[k] || k}: ${v}`)
+    .join("&#10;"); // newline inside attribute, rendered by CSS white-space:pre-line
 }
 
 function sourceLink(card) {
