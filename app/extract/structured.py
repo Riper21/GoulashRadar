@@ -157,7 +157,10 @@ def from_structured(html: str, base_url: str) -> PageData:
 _SKIP_TAGS = ("script", "style", "noscript", "svg", "header", "footer", "nav", "aside", "form")
 
 _DELIVERY_RE = re.compile(
-    r"(доставк\w+|самовывоз\w*|транспортн\w+ компани\w+|СДЭК|Деловые[ ]линии|ПЭК| pony express|dpd|dims24|желдор\w*)",
+    r"((?:бесплатн\w+|платн\w+|[а-яё]+)[ ,]*){0,3}доставк[ауы]\w*"
+    r"(?:[^.!?;]{0,80})|самовывоз\w*[^.!?;]{0,40}"
+    r"|(?:СДЭК|Деловы[еи][ ]линии|ПЭК|Pony Express|DPD|dims24|желдор\w+)"
+    r"[^.!?;]{0,50}",
     re.IGNORECASE,
 )
 _CITY_HINT_RE = re.compile(
@@ -188,8 +191,11 @@ def from_heuristics(html: str, pd: PageData, limit: int = 6000) -> PageData:
     if not pd.delivery:
         m = _DELIVERY_RE.search(text)
         if m:
-            start = max(0, m.start() - 60)
-            pd.delivery = text[start:m.end() + 60].strip()
+            snippet = m.group(0).strip()
+            # normalize whitespace: CSV cells must be single-line
+            snippet = re.sub(r"\s+", " ", snippet)
+            if 10 <= len(snippet) <= 120:
+                pd.delivery = snippet
     if not pd.city:
         m = _CITY_HINT_RE.search(text)
         if m:

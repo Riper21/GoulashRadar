@@ -338,20 +338,28 @@ function openNoteDialog(card) {
 
 /* ---------- export CSV ---------- */
 
+// RFC 4180: quote if the cell has any delimiter/quote/newline; single-line always
+function csvCell(v) {
+  let s = v == null ? "" : String(v);
+  s = s.replace(/\r?\n/g, " ").replace(/\r/g, " ").replace(/\t/g, " ").replace(/"/g, '""');
+  if (/[;"\n]/.test(s)) s = `"${s}"`;
+  return s;
+}
+
 function exportCsv() {
   const rows = [["Название", "Город", "Телефон", "Email", "Сайт", "Мин. заказ", "Цена", "Доставка", "ИНН", "Сертификаты", "Заметка", "Источник"]];
   for (const c of state.cards) {
     rows.push([
       c.name, c.city || "",
-      (c.phones || []).map((p) => p.e164 || p.raw).join("; "),
-      (c.emails || []).map((e) => e.address).join("; "),
+      (c.phones || []).map((p) => p.e164 || p.raw).join(", "),
+      (c.emails || []).map((e) => e.address).join(", "),
       c.website || "", c.min_order || "", c.price_range || "",
-      (c.delivery || "").slice(0, 100), c.inn || "",
-      (c.certs || []).join("; "), getNote(c.identity_key),
-      (c.sources || []).map((s) => s.url).join("; "),
+      (c.delivery || "").slice(0, 120), c.inn || "",
+      (c.certs || []).join(", "), getNote(c.identity_key),
+      (c.sources || []).map((s) => s.url).join(", "),
     ]);
   }
-  const csv = "\uFEFF" + rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const csv = "\uFEFF" + rows.map((r) => r.map(csvCell).join(";")).join("\r\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
