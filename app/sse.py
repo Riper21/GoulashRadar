@@ -57,12 +57,15 @@ async def sse_stream(job_id: str) -> AsyncGenerator[str, None]:
     q = bus.subscribe(job_id)
     try:
         while True:
-            ev: Optional[JobEvent] = await asyncio.wait_for(q.get(), timeout=30.0)
+            try:
+                ev: Optional[JobEvent] = await asyncio.wait_for(q.get(), timeout=30.0)
+            except asyncio.TimeoutError:
+                # keep-alive on idle, then KEEP LISTENING: closing here makes the
+                # browser EventSource auto-reconnect and replay all card events
+                yield ": keep-alive\n\n"
+                continue
             yield ev.sse()
             if ev.event == "done":
                 break
-    except asyncio.TimeoutError:
-        # keep-alive comment on idle
-        yield ": keep-alive\n\n"
     finally:
         bus.unsubscribe(job_id, q)

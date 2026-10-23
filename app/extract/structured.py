@@ -40,7 +40,9 @@ class PageData:
         filled = sum(1 for f in fields if f)
         return filled / len(fields)
 
-    def to_card(self, cand: Candidate, fallback_city: str, category: str) -> SupplierCard:
+    def to_card(self, cand: Candidate, job_city: str, category: str) -> SupplierCard:
+        # city: ONLY what the page explicitly states; never the query city as a guess
+        _ = job_city
         sources = [SourceRef(url=cand.url, engine=cand.engine, fetched_at=datetime.utcnow())]
         website = self.website or f"https://{cand.domain}"
         name = self.name or (cand.title.split("|")[0].split("—")[0].strip() or cand.domain)
@@ -61,7 +63,7 @@ class PageData:
             emails=[Email(address=e) for e in self.emails[:3]],
             website=website,
             address=self.address,
-            city=self.city or fallback_city,
+            city=self.city,
             region=self.region,
             min_order=self.min_order,
             price_range=self.price_range,
@@ -184,7 +186,7 @@ def from_structured(html: str, base_url: str) -> PageData:
         if not pd.city:
             a = org.get("address")
             if isinstance(a, dict) and a.get("addressLocality"):
-                pd.city = str(a["addressLocality"])
+                pd.city = _clean_city(str(a["addressLocality"]))
         for tel in (org.get("telephone") if isinstance(org.get("telephone"), list) else [org.get("telephone")]):
             if isinstance(tel, str) and tel:
                 pd.phones.append(tel)
@@ -238,31 +240,51 @@ _DELIVERY_RE = re.compile(
     re.IGNORECASE,
 )
 _CITY_HINT_RE = re.compile(
-    r"(?:\bг\.|\bгород[а]?\b)\s*([А-ЯЁ][а-яё-]{2,}(?:-[А-ЯЁ][а-яё-]{2,})?)", re.UNICODE
+    r"(?:\bг\.|\bгород[аыу]?\b|\bгород(?:а|у)?\s+поставки\b)[\s:]*"
+    r"([А-ЯЁ][а-яё-]{2,}(?:-[А-ЯЁ][а-яё-]{2,})?)",
+    re.UNICODE,
 )
 
-# nav-menu words that _CITY_HINT_RE mistakes for city names after "город"-like contexts
-_NOT_A_CITY = {
-    "женская", "женск", "мужская", "мужск", "оптовикам", "оптовая", "розница",
-    "прайс", "контакты", "каталог", "доставка", "официальный", "сайте",
-    "статьи", "новости", "отзывы", "акции", "скидки", "производства",
-    "куплю", "продам", "применение", "услуги", "вакансии", "режим",
-    # countries / regions, not cities
-    "россии", "россия", "москве", "москвы", "питер", "спб",
-    # nutrition-table words (matched after "NN г")
-    "жиры", "белки", "углеводы", "калорийность",
-    "миндаль", "грецкий", "фисташка", "смесь", "макадамия", "уведомить",
+# Known Russian cities (objective whitelist): text heuristics may ONLY pick from it.
+# Anything else is not marked as a city — better empty than wrong ("Упаковка", "Жиры").
+_RU_CITIES = {
+    "москва", "санкт-петербург", "новосибирск", "екатеринбург", "казань",
+    "нижний новгород", "челябинск", "самара", "омск", "ростов-на-дону", "уфа",
+    "красноярск", "воронеж", "пермь", "волгоград", "краснодар", "саратов",
+    "тюмень", "тольятти", "барнаул", "ижевск", "ульяновск", "иркутск",
+    "хабаровск", "ярославль", "владивосток", "махачкала", "томск", "оренбург",
+    "кемерово", "новокузнецк", "рязань", "астрахань", "набережные челны",
+    "пенза", "липецк", "киров", "чебоксары", "тула", "калуга", "курск", "сочи",
+    "ставрополь", "улан-удэ", "тверь", "магнитогорск", "иваново", "брянск",
+    "севастополь", "нижний тагил", "архангельск", "владимир", "симферополь",
+    "смоленск", "сургут", "вологда", "владикавказ", "грозный", "мурманск",
+    "якутск", "ростов", "подольск", "петрозаводск", "каменск-уральский",
+    "сыктывкар", "нижневартовск", "орск", "сызрань", "новочеркасск", "нижнекамск",
+    "братск", "балаково", "обнинск", "нефтеюганск", "великий новгород",
+    "старый оскол", "псков", "мытищи", "люберцы", "балашиха", "химки",
+    "красногорск", "одинцово", "королёв", "домодедово", "сергиев посад",
+    "пушкино", "раменское", "долгопрудный", "нальчик", "кисловодск",
+    "новомосковск", "первоуральск", "невинномысск", "камышин", "орехово-зуево",
+    "керчь", "дербент", "волгодонск", "белгород", "выборг", "саров", "дубна",
+    "реутов", "коломна", "клин", "серпухов", "электросталь", "копейск",
+    "миасс", "озерск", "снежинск", "верхняя пышма", "таганрог", "шахты",
+    "батайск", "новошахтинск", "азов", "абакан", "канск", "ачинск",
+    "лесосибирск", "железногорск", "зеленогорск", "дивногорск", "березники",
+    "соликамск", "краснотурьинск", "каменск-шахтинский", "алметьевск",
+    "ангарск", "усолье-сибирское", "черемхово", "шелехов", "нижнеудинск",
+    "тайшет", "зима", "тулун", "усть-илимск", "берёзовский", "сосновоборск",
+    "красноярск", "сатка", "южноуральск", "новороссийск", "геленджик",
 }
 
 
 def _clean_city(candidate: Optional[str]) -> Optional[str]:
+    """City only if it is a known Russian city; else None (better empty than wrong)."""
     if not candidate:
         return None
     c = candidate.strip()
-    if c.lower() in _NOT_A_CITY:
-        return None
-    # city names are 3+ chars, start uppercase; reject hyphen-only/numeric junk
     if len(c) < 3 or not re.search(r"[А-ЯЁа-яё]", c):
+        return None
+    if c.lower() not in _RU_CITIES:
         return None
     return c
 

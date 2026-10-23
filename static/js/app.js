@@ -150,6 +150,11 @@ function showError(msg) {
 /* ---------- cards ---------- */
 
 function addCard(card, score, verdict, category, city) {
+  // idempotent: server may re-send a card (merge updates, replayed events)
+  if (state.cards.some((c) => c.identity_key === card.identity_key)) {
+    updateCard(card, score, verdict);
+    return;
+  }
   $("results-head").classList.remove("hidden");
   state.cards.push(card);
   const el = renderCard(card, score, verdict, category, city);
